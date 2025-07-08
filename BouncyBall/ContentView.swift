@@ -55,7 +55,7 @@ struct ContentView: View {
         
         let groundPhysics = PhysicsBodyComponent(
             massProperties: .default,
-            material: .generate(staticFriction: 0.8, dynamicFriction: 0.5, restitution: 0.8),
+            material: .generate(staticFriction: 0.8, dynamicFriction: 0.5, restitution: 1.0),
             mode: .static
         )
         ground.components.set(groundPhysics)

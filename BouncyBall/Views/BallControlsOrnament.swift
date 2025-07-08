@@ -55,11 +55,11 @@ struct BallControlsOrnament: View {
             Text("Bounce Count")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text("\(appModel.physicsManager.bounceCount)")
+            Text("\(appModel.bounceCount)")
                 .font(.system(size: 48, weight: .bold, design: .rounded))
                 .contentTransition(.numericText())
         }
-        .animation(.spring(response: 0.3), value: appModel.physicsManager.bounceCount)
+        .animation(.spring(response: 0.3), value: appModel.bounceCount)
     }
     
     private var physicsSliders: some View {

@@ -7,13 +7,15 @@ class PhysicsManager: ObservableObject {
     @Published var bounceCount: Int = 0
     @Published var ballEntity: Entity?
     
-    private var collisionSubscription: AnyCancellable?
+    private var collisionSubscription: EventSubscription?
     private var lastCollisionTime: Date = .distantPast
     private let collisionDebounceThreshold: TimeInterval = 0.1
     
     struct PhysicsParams {
         var staticFriction: Float = 0.5
         var dynamicFriction: Float = 0.5
+        var linearDamping: Float = 0.0
+        var angularDamping: Float = 0.0
     }
     
     func dropBall(
@@ -31,7 +33,8 @@ class PhysicsManager: ObservableObject {
         content.add(ball)
         ballEntity = ball
         
-        setupCollisionDetection(for: ball)
+        // Setup collision detection immediately
+        setupCollisionDetection(for: ball, in: content)
     }
     
     private func createBall(radius: Float, physicsParams: PhysicsParams) -> ModelEntity {
@@ -40,8 +43,8 @@ class PhysicsManager: ObservableObject {
             materials: [SimpleMaterial(color: .systemBlue, isMetallic: true)]
         )
         
-        let physicsBody = PhysicsBodyComponent(
-            massProperties: .init(mass: 0.001),
+        var physicsBody = PhysicsBodyComponent(
+            massProperties: .init(mass: 0.1),
             material: .generate(
                 staticFriction: physicsParams.staticFriction,
                 dynamicFriction: physicsParams.dynamicFriction,
@@ -49,6 +52,9 @@ class PhysicsManager: ObservableObject {
             ),
             mode: .dynamic
         )
+        
+        physicsBody.linearDamping = physicsParams.linearDamping
+        physicsBody.angularDamping = physicsParams.angularDamping
         
         ball.components.set(physicsBody)
         
@@ -63,12 +69,11 @@ class PhysicsManager: ObservableObject {
         return ball
     }
     
-    private func setupCollisionDetection(for ball: Entity) {
+    private func setupCollisionDetection(for ball: Entity, in content: RealityViewContent) {
         collisionSubscription?.cancel()
         
-        guard let scene = ball.scene else { return }
-        
-        let subscription = scene.subscribe(
+        // Subscribe to collision events
+        collisionSubscription = content.subscribe(
             to: CollisionEvents.Began.self,
             on: ball
         ) { [weak self] event in
@@ -80,8 +85,6 @@ class PhysicsManager: ObservableObject {
                 self.lastCollisionTime = currentTime
             }
         }
-        
-        collisionSubscription = AnyCancellable(subscription)
     }
     
     func hitBall(force: Float) {
