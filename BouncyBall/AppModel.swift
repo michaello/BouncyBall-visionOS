@@ -1,21 +1,23 @@
-//
-//  AppModel.swift
-//  BouncyBall
-//
-//  Created by Mike Pyrka on 08.07.2025.
-//
-
 import SwiftUI
+import RealityKit
 
-/// Maintains app-wide state
 @MainActor
 @Observable
 class AppModel {
-    let immersiveSpaceID = "ImmersiveSpace"
-    enum ImmersiveSpaceState {
-        case closed
-        case inTransition
-        case open
+    let physicsManager = PhysicsManager()
+    
+    var dropHeight: Float = 0.5
+    var ballRadius: Float = 0.05
+    var hitForce: Float = 50.0
+    var linearDamping: Float = 0.1
+    var angularDamping: Float = 0.1
+    var staticFriction: Float = 0.5
+    var dynamicFriction: Float = 0.5
+    
+    var physicsParams: PhysicsManager.PhysicsParams {
+        PhysicsManager.PhysicsParams(
+            staticFriction: staticFriction,
+            dynamicFriction: dynamicFriction
+        )
     }
-    var immersiveSpaceState = ImmersiveSpaceState.closed
 }
