@@ -38,7 +38,7 @@ class PhysicsManager: ObservableObject {
         let ball = createBall(radius: radius, physicsParams: physicsParams)
         ball.position = position * PhysicsManager.worldScale
         
-        physicsRoot.addChild(ball)
+        ball.setParent(physicsRoot)
         ballEntity = ball
         
         setupCollisionDetection(for: ball, in: content)
@@ -134,11 +134,7 @@ class PhysicsManager: ObservableObject {
     
     func removeBall(from content: RealityViewContent) {
         if let ball = ballEntity {
-            if let root = physicsRoot {
-                root.removeChild(ball)
-            } else {
-                content.remove(ball)
-            }
+            ball.removeFromParent()
             ballEntity = nil
         }
         collisionSubscription?.cancel()
@@ -170,7 +166,7 @@ class PhysicsManager: ObservableObject {
         ground.components.set(groundPhysics)
         ground.generateCollisionShapes(recursive: false)
         
-        physicsRoot.addChild(ground)
+        ground.setParent(physicsRoot)
         
         let light = DirectionalLight()
         light.light.intensity = 5000
