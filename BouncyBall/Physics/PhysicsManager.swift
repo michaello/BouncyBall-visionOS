@@ -4,8 +4,11 @@ import Combine
 
 @MainActor
 class PhysicsManager: ObservableObject {
+    static let worldScale: Float = 100.0
+    
     @Published var bounceCount: Int = 0
     @Published var ballEntity: Entity?
+    var physicsRoot: Entity?
     
     private var collisionSubscription: EventSubscription?
     private var lastCollisionTime: Date = .distantPast
@@ -27,21 +30,30 @@ class PhysicsManager: ObservableObject {
         removeBall(from: content)
         bounceCount = 0
         
-        let ball = createBall(radius: radius, physicsParams: physicsParams)
-        ball.position = position
+        guard let physicsRoot = physicsRoot else {
+            print("Physics root not initialized")
+            return
+        }
         
-        content.add(ball)
+        let ball = createBall(radius: radius, physicsParams: physicsParams)
+        ball.position = position * PhysicsManager.worldScale
+        
+        physicsRoot.addChild(ball)
         ballEntity = ball
         
-        // Setup collision detection immediately
         setupCollisionDetection(for: ball, in: content)
     }
     
     private func createBall(radius: Float, physicsParams: PhysicsParams) -> ModelEntity {
+        let scaledRadius = radius * PhysicsManager.worldScale
+        let ballShape = ShapeResource.generateSphere(radius: scaledRadius)
+        
         let ball = ModelEntity(
-            mesh: .generateSphere(radius: radius),
+            mesh: MeshResource(shape: ballShape),
             materials: [SimpleMaterial(color: .systemBlue, isMetallic: true)]
         )
+        
+        ball.components.set(CollisionComponent(shapes: [ballShape], isStatic: false))
         
         var physicsBody = PhysicsBodyComponent(
             massProperties: .init(mass: 0.1),
@@ -64,7 +76,6 @@ class PhysicsManager: ObservableObject {
         )
         
         ball.components.set(physicsMotion)
-        ball.generateCollisionShapes(recursive: false)
         
         return ball
     }
@@ -72,7 +83,6 @@ class PhysicsManager: ObservableObject {
     private func setupCollisionDetection(for ball: Entity, in content: RealityViewContent) {
         collisionSubscription?.cancel()
         
-        // Subscribe to collision events
         collisionSubscription = content.subscribe(
             to: CollisionEvents.Began.self,
             on: ball
@@ -91,11 +101,12 @@ class PhysicsManager: ObservableObject {
         guard let ball = ballEntity,
               var physicsMotion = ball.components[PhysicsMotionComponent.self] else { return }
         
+        let scaledForce = force * PhysicsManager.worldScale
         let randomAngle = Float.random(in: 0...(2 * .pi))
         let forceDirection = SIMD3<Float>(
-            cos(randomAngle) * force,
-            force * 0.5,
-            sin(randomAngle) * force
+            cos(randomAngle) * scaledForce,
+            scaledForce * 0.5,
+            sin(randomAngle) * scaledForce
         )
         
         physicsMotion.linearVelocity += forceDirection / 1000
@@ -112,7 +123,7 @@ class PhysicsManager: ObservableObject {
     
     func moveBall(to position: SIMD3<Float>) {
         guard let ball = ballEntity else { return }
-        ball.position = position
+        ball.position = position * PhysicsManager.worldScale
         
         if var physicsMotion = ball.components[PhysicsMotionComponent.self] {
             physicsMotion.linearVelocity = [0, 0, 0]
@@ -123,9 +134,47 @@ class PhysicsManager: ObservableObject {
     
     func removeBall(from content: RealityViewContent) {
         if let ball = ballEntity {
-            content.remove(ball)
+            if let root = physicsRoot {
+                root.removeChild(ball)
+            } else {
+                content.remove(ball)
+            }
             ballEntity = nil
         }
         collisionSubscription?.cancel()
+    }
+    
+    func setupPhysicsScene(_ content: RealityViewContent) {
+        var physicsSimulation = PhysicsSimulationComponent()
+        physicsSimulation.gravity = .init(x: 0.0, y: -9.8 * PhysicsManager.worldScale, z: 0.0)
+        
+        let physicsRoot = Entity()
+        physicsRoot.components.set(physicsSimulation)
+        physicsRoot.transform.scale = SIMD3<Float>(repeating: 1.0 / PhysicsManager.worldScale)
+        physicsRoot.name = "Physics Root"
+        
+        content.add(physicsRoot)
+        self.physicsRoot = physicsRoot
+        
+        let ground = ModelEntity(
+            mesh: .generateBox(width: 0.5 * PhysicsManager.worldScale, height: 0.02 * PhysicsManager.worldScale, depth: 0.5 * PhysicsManager.worldScale),
+            materials: [SimpleMaterial(color: .gray, isMetallic: false)]
+        )
+        ground.position = [0, -0.01 * PhysicsManager.worldScale, 0]
+        
+        let groundPhysics = PhysicsBodyComponent(
+            massProperties: .default,
+            material: .generate(staticFriction: 0.8, dynamicFriction: 0.5, restitution: 1.0),
+            mode: .static
+        )
+        ground.components.set(groundPhysics)
+        ground.generateCollisionShapes(recursive: false)
+        
+        physicsRoot.addChild(ground)
+        
+        let light = DirectionalLight()
+        light.light.intensity = 5000
+        light.orientation = simd_quatf(angle: -.pi / 4, axis: [1, 0, 0])
+        content.add(light)
     }
 }
